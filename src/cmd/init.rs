@@ -176,13 +176,24 @@ __gump_accept_line() {
         return
     fi
 
-    # Skip if command exists (function, alias, builtin, or in PATH)
-    if (( $+commands[$first_word] )) || \
+    # Skip paths (starting with . / or ~)
+    if [[ "$first_word" == "."* ]] || \
+       [[ "$first_word" == "/"* ]] || \
+       [[ "$first_word" == "~"* ]]; then
+        zle .accept-line
+        return
+    fi
+
+    # Skip if command exists (use whence for comprehensive check)
+    if whence -p "$first_word" >/dev/null 2>&1 || \
        (( $+functions[$first_word] )) || \
        (( $+aliases[$first_word] )) || \
-       [[ -n "${builtins[$first_word]:-}" ]] || \
-       [[ "$first_word" == "."* ]] || \
-       [[ "$first_word" == "/"* ]]; then
+       [[ "$first_word" == "." ]] || \
+       [[ "$first_word" == "source" ]] || \
+       [[ "$first_word" == "cd" ]] || \
+       [[ "$first_word" == "exit" ]] || \
+       [[ "$first_word" == "exec" ]] || \
+       [[ "$first_word" == "eval" ]]; then
         zle .accept-line
         return
     fi
