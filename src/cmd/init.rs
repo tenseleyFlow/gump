@@ -263,28 +263,52 @@ end
         ));
     }
 
-    // fish_command_not_found for no-prefix jumping
+    // Intercept Enter key to check for gump jumps before execution
     output.push_str(r#"
-# No-prefix directory jumping - must erase existing handler first
-functions -e fish_command_not_found
+# No-prefix directory jumping via Enter key interception
+function __gump_execute
+    set -l cmd (commandline -b)
+    set -l first_word (string split ' ' -- $cmd)[1]
 
-function fish_command_not_found --on-event fish_command_not_found
-    # Check if it's a local directory first
-    if test -d "$argv[1]"
-        cd $argv[1]
-        return 0
+    # Skip if empty
+    if test -z "$first_word"
+        commandline -f execute
+        return
+    end
+
+    # Skip if command exists
+    if type -q "$first_word"
+        commandline -f execute
+        return
+    end
+
+    # Skip if starts with path characters
+    if string match -qr '^[./~]' -- "$first_word"
+        commandline -f execute
+        return
+    end
+
+    # Check if it's a local directory
+    if test -d "$first_word"
+        commandline -r "cd $first_word"
+        commandline -f execute
+        return
     end
 
     # Query gump database
-    set -l result (command gump query -- $argv 2>/dev/null)
+    set -l result (command gump query -- $cmd 2>/dev/null)
     if test -n "$result"
-        cd $result
-        return 0
+        commandline -r "cd \"$result\""
+        commandline -f execute
+        return
     end
 
-    # Fallback to default handler
-    __fish_default_command_not_found_handler $argv
+    # Not a gump match, execute normally
+    commandline -f execute
 end
+
+bind \r __gump_execute
+bind \n __gump_execute
 "#);
 
     output
