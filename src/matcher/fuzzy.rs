@@ -9,7 +9,9 @@ use nucleo::{
 #[derive(Debug, Clone)]
 pub struct Match<'a> {
     pub path: &'a Path,
+    #[allow(dead_code)]
     pub frecency: f64,
+    #[allow(dead_code)]
     pub fuzzy_score: u32,
     pub combined_score: f64,
 }

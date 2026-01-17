@@ -1,3 +1,3 @@
 mod fuzzy;
 
-pub use fuzzy::{Match, Matcher};
+pub use fuzzy::Matcher;

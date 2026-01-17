@@ -28,9 +28,6 @@ pub enum DatabaseError {
 
     #[error("Path not found in database: {0}")]
     PathNotFound(PathBuf),
-
-    #[error("Invalid path: {0}")]
-    InvalidPath(String),
 }
 
 /// The on-disk database format.
@@ -275,11 +272,13 @@ impl Database {
     }
 
     /// Get the number of entries in the database.
+    #[allow(dead_code)]
     pub fn len(&self) -> usize {
         self.data.entries.len()
     }
 
     /// Check if the database is empty.
+    #[allow(dead_code)]
     pub fn is_empty(&self) -> bool {
         self.data.entries.is_empty()
     }
