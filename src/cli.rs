@@ -32,6 +32,10 @@ pub enum Commands {
         /// Show all matches instead of just the best
         #[arg(short, long)]
         all: bool,
+
+        /// Match against current directory contents instead of database
+        #[arg(long)]
+        cwd: bool,
     },
 
     /// Remove a directory from the database

@@ -44,13 +44,29 @@ Restart shell or source the file.
 
 ## Usage
 
+Just type where you want to go:
+
+```bash
+projects           # jumps to ~/code/projects
+doc                # jumps to ./Documents (fuzzy CWD match)
+gmp                # jumps to ~/code/gump (fuzzy database match)
+conf fish          # jumps to ~/.config/fish (multi-term)
+```
+
+Or use the `g` command:
+
 ```bash
 g foo              # jump to best match for "foo"
-g foo bar          # jump to path matching "foo" then "bar"
 g                  # go home
 g -                # go back
 gi foo             # interactive selection with fzf
 ```
+
+Resolution order:
+1. Existing commands/aliases/builtins
+2. Exact directory in CWD
+3. Fuzzy match against CWD contents
+4. Fuzzy match against database
 
 Directories are learned automatically as you `cd` around.
 

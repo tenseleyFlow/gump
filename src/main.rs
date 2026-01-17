@@ -11,7 +11,7 @@ fn main() {
 
     let result = match cli.command {
         Commands::Add { path } => cmd::add::run(path),
-        Commands::Query { terms, score, all } => cmd::query::run(terms, score, all),
+        Commands::Query { terms, score, all, cwd } => cmd::query::run(terms, score, all, cwd),
         Commands::Remove { path } => cmd::remove::run(path),
         Commands::List { score } => cmd::list::run(score),
         Commands::Clean => cmd::clean::run(),

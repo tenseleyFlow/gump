@@ -64,7 +64,11 @@ fi
         builtin cd - && __gump_hook
     else
         local result
-        result=$(command gump query -- "$@")
+        # Try CWD first, then database
+        result=$(command gump query --cwd -- "$@" 2>/dev/null)
+        if [[ -z "$result" ]]; then
+            result=$(command gump query -- "$@" 2>/dev/null)
+        fi
         if [[ -n "$result" ]]; then
             builtin cd -- "$result" && __gump_hook
         else
@@ -91,14 +95,21 @@ fi
     output.push_str(r#"
 # No-prefix directory jumping
 command_not_found_handle() {
-    # Check if it's a local directory first
+    # Check if it's a local directory first (exact match)
     if [[ -d "$1" ]]; then
         builtin cd -- "$1" && __gump_hook
         return 0
     fi
 
-    # Query gump database
+    # Fuzzy match against current directory contents
     local result
+    result=$(command gump query --cwd -- "$@" 2>/dev/null)
+    if [[ -n "$result" ]]; then
+        builtin cd -- "$result" && __gump_hook
+        return 0
+    fi
+
+    # Query gump database
     result=$(command gump query -- "$@" 2>/dev/null)
     if [[ -n "$result" ]]; then
         builtin cd -- "$result" && __gump_hook
@@ -153,7 +164,11 @@ __gump_hook() {
         builtin cd -
     else
         local result
-        result=$(command gump query -- "$@")
+        # Try CWD first, then database
+        result=$(command gump query --cwd -- "$@" 2>/dev/null)
+        if [[ -z "$result" ]]; then
+            result=$(command gump query -- "$@" 2>/dev/null)
+        fi
         if [[ -n "$result" ]]; then
             builtin cd -- "$result"
         else
@@ -202,15 +217,23 @@ __gump_accept_line() {
         return
     fi
 
-    # Check if it's a local directory
+    # Check if it's a local directory (exact match)
     if [[ -d "$first_word" ]]; then
         BUFFER="cd ${(q)first_word}"
         zle .accept-line
         return
     fi
 
-    # Query gump database
+    # Fuzzy match against current directory contents
     local result
+    result=$(command gump query --cwd -- $=BUFFER 2>/dev/null)
+    if [[ -n "$result" ]]; then
+        BUFFER="cd ${(q)result}"
+        zle .accept-line
+        return
+    fi
+
+    # Query gump database
     result=$(command gump query -- $=BUFFER 2>/dev/null)
     if [[ -n "$result" ]]; then
         BUFFER="cd ${(q)result}"
@@ -259,7 +282,11 @@ function {cmd} --description "Jump to a directory"
     else if test (count $argv) -eq 1 -a "$argv[1]" = "-"
         cd -
     else
-        set -l result (command gump query -- $argv)
+        # Try CWD first, then database
+        set -l result (command gump query --cwd -- $argv 2>/dev/null)
+        if test -z "$result"
+            set result (command gump query -- $argv 2>/dev/null)
+        end
         if test -n "$result"
             cd $result
         else
@@ -306,9 +333,17 @@ function __gump_execute
         return
     end
 
-    # Check if it's a local directory
+    # Check if it's a local directory (exact match)
     if test -d "$first_word"
         commandline -r "cd $first_word"
+        commandline -f execute
+        return
+    end
+
+    # Fuzzy match against current directory contents
+    set -l result (command gump query --cwd -- $cmd 2>/dev/null)
+    if test -n "$result"
+        commandline -r "cd \"$result\""
         commandline -f execute
         return
     end
