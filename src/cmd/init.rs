@@ -58,13 +58,19 @@ fi
             r#"
 # Jump function
 {cmd}() {{
-    local result
-    result=$(command gump query -- "$@")
-    if [[ -n "$result" ]]; then
-        builtin cd -- "$result" && __gump_hook
+    if [[ $# -eq 0 ]]; then
+        builtin cd ~ && __gump_hook
+    elif [[ $# -eq 1 && "$1" == "-" ]]; then
+        builtin cd - && __gump_hook
     else
-        echo "gump: no match found" >&2
-        return 1
+        local result
+        result=$(command gump query -- "$@")
+        if [[ -n "$result" ]]; then
+            builtin cd -- "$result" && __gump_hook
+        else
+            echo "gump: no match found" >&2
+            return 1
+        fi
     fi
 }}
 
@@ -141,13 +147,19 @@ __gump_hook() {
             r#"
 # Jump function
 {cmd}() {{
-    local result
-    result=$(command gump query -- "$@")
-    if [[ -n "$result" ]]; then
-        builtin cd -- "$result"
+    if [[ $# -eq 0 ]]; then
+        builtin cd ~
+    elif [[ $# -eq 1 && "$1" == "-" ]]; then
+        builtin cd -
     else
-        echo "gump: no match found" >&2
-        return 1
+        local result
+        result=$(command gump query -- "$@")
+        if [[ -n "$result" ]]; then
+            builtin cd -- "$result"
+        else
+            echo "gump: no match found" >&2
+            return 1
+        fi
     fi
 }}
 
@@ -242,12 +254,18 @@ end
             r#"
 # Jump function
 function {cmd} --description "Jump to a directory"
-    set -l result (command gump query -- $argv)
-    if test -n "$result"
-        cd $result
+    if test (count $argv) -eq 0
+        cd ~
+    else if test (count $argv) -eq 1 -a "$argv[1]" = "-"
+        cd -
     else
-        echo "gump: no match found" >&2
-        return 1
+        set -l result (command gump query -- $argv)
+        if test -n "$result"
+            cd $result
+        else
+            echo "gump: no match found" >&2
+            return 1
+        end
     end
 end
 
