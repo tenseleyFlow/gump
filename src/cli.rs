@@ -21,8 +21,7 @@ pub enum Commands {
 
     /// Query the database for matching directories
     Query {
-        /// Search terms
-        #[arg(required = true)]
+        /// Search terms (optional with --all)
         terms: Vec<String>,
 
         /// Show frecency scores
