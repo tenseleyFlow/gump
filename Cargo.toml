@@ -1,0 +1,27 @@
+[package]
+name = "gump"
+version = "0.1.0"
+edition = "2021"
+description = "A smarter cd command - zoxide without the z"
+authors = ["mfwolffe"]
+license = "MIT"
+repository = "https://github.com/tenseleyFlow/gump"
+keywords = ["cd", "directory", "navigation", "frecency", "shell"]
+categories = ["command-line-utilities"]
+
+[dependencies]
+clap = { version = "4", features = ["derive"] }
+serde = { version = "1", features = ["derive"] }
+bincode = "1"
+directories = "5"
+chrono = { version = "0.4", features = ["serde"] }
+thiserror = "2"
+nucleo = "0.5"
+
+[dev-dependencies]
+tempfile = "3"
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true
