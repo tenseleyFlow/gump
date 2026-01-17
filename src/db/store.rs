@@ -160,6 +160,33 @@ impl Database {
         Ok(())
     }
 
+    /// Import an entry with a specific score (for importing from zoxide).
+    pub fn import_entry<P: AsRef<Path>>(&mut self, path: P, score: f64) -> Result<(), DatabaseError> {
+        let path = PathBuf::from(path.as_ref());
+
+        // Skip if excluded
+        if self.is_excluded(&path) {
+            return Ok(());
+        }
+
+        // Only import if path exists
+        if !path.exists() {
+            return Ok(());
+        }
+
+        // Add or merge with existing entry
+        if let Some(entry) = self.data.entries.get_mut(&path) {
+            // Merge scores (take the higher one)
+            if score > entry.score {
+                entry.score = score;
+            }
+        } else {
+            self.data.entries.insert(path, DirEntry::with_score(score));
+        }
+
+        Ok(())
+    }
+
     /// Remove a directory from the database.
     pub fn remove<P: AsRef<Path>>(&mut self, path: P) -> Result<(), DatabaseError> {
         let path = self.canonicalize_path(path)?;

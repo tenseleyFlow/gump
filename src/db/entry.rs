@@ -24,6 +24,15 @@ impl DirEntry {
         }
     }
 
+    /// Create an entry with a specific score (for imports).
+    pub fn with_score(score: f64) -> Self {
+        Self {
+            score,
+            last_accessed: Utc::now(),
+            access_count: 1,
+        }
+    }
+
     /// Record an access to this directory, updating score and timestamp.
     pub fn record_access(&mut self) {
         self.score += 1.0;
