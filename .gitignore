@@ -2,3 +2,7 @@ docs/
 .fackr/
 .vscode/
 CLAUDE.md
+
+# Added by cargo
+
+/target
