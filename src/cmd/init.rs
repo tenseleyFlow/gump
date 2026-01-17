@@ -184,16 +184,8 @@ __gump_accept_line() {
         return
     fi
 
-    # Skip if command exists (use whence for comprehensive check)
-    if whence -p "$first_word" >/dev/null 2>&1 || \
-       (( $+functions[$first_word] )) || \
-       (( $+aliases[$first_word] )) || \
-       [[ "$first_word" == "." ]] || \
-       [[ "$first_word" == "source" ]] || \
-       [[ "$first_word" == "cd" ]] || \
-       [[ "$first_word" == "exit" ]] || \
-       [[ "$first_word" == "exec" ]] || \
-       [[ "$first_word" == "eval" ]]; then
+    # Skip if command exists (whence checks builtins, functions, aliases, and PATH)
+    if whence "$first_word" >/dev/null 2>&1; then
         zle .accept-line
         return
     fi
