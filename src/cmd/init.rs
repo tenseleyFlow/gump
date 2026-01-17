@@ -265,8 +265,10 @@ end
 
     // fish_command_not_found for no-prefix jumping
     output.push_str(r#"
-# No-prefix directory jumping
-function fish_command_not_found
+# No-prefix directory jumping - must erase existing handler first
+functions -e fish_command_not_found
+
+function fish_command_not_found --on-event fish_command_not_found
     # Check if it's a local directory first
     if test -d "$argv[1]"
         cd $argv[1]
