@@ -14,8 +14,19 @@ doc my             # jumps to ~/documents/myfiles (multi-term)
 
 No command prefix required.
 
-## Build
+## Install
 
+**Homebrew**
+```bash
+brew install tenseleyFlow/tap/gump
+```
+
+**AUR**
+```bash
+yay -S gump
+```
+
+**From source**
 ```bash
 cargo build --release
 cp target/release/gump ~/.local/bin/
