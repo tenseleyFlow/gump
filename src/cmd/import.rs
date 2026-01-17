@@ -7,29 +7,54 @@ use crate::db::Database;
 
 use super::Result;
 
+/// Maximum score for imported entries (prevents one source from dominating).
+const MAX_IMPORT_SCORE: f64 = 100.0;
+
 /// Import directories from various tools (zoxide, autojump, z, fasd).
 pub fn run() -> Result<()> {
     let mut db = Database::open()?;
     let mut total_imported = 0;
 
-    // Try each source
-    total_imported += import_zoxide(&mut db)?;
-    total_imported += import_autojump(&mut db)?;
-    total_imported += import_z(&mut db)?;
-    total_imported += import_fasd(&mut db)?;
+    // Collect entries from each source with their raw scores
+    let mut entries: Vec<(String, f64)> = Vec::new();
+
+    collect_zoxide(&mut entries)?;
+    collect_autojump(&mut entries)?;
+    collect_z(&mut entries)?;
+    collect_fasd(&mut entries)?;
+
+    if entries.is_empty() {
+        println!("No databases found to import from");
+        return Ok(());
+    }
+
+    // Find max score for normalization
+    let max_score = entries.iter().map(|(_, s)| *s).fold(0.0f64, f64::max);
+
+    // Normalize and import
+    for (path, score) in entries {
+        // Scale score to 0-MAX_IMPORT_SCORE range
+        let normalized = if max_score > 0.0 {
+            (score / max_score) * MAX_IMPORT_SCORE
+        } else {
+            1.0
+        };
+
+        if db.import_entry(&path, normalized.max(1.0)).is_ok() {
+            total_imported += 1;
+        }
+    }
 
     if total_imported > 0 {
         db.save()?;
-        println!("Imported {} total entries", total_imported);
-    } else {
-        println!("No databases found to import from");
+        println!("Imported {} entries (scores normalized to 1-{})", total_imported, MAX_IMPORT_SCORE as u32);
     }
 
     Ok(())
 }
 
-/// Import from zoxide using its CLI.
-fn import_zoxide(db: &mut Database) -> Result<usize> {
+/// Collect entries from zoxide using its CLI.
+fn collect_zoxide(entries: &mut Vec<(String, f64)>) -> Result<()> {
     let output = Command::new("zoxide")
         .args(["query", "--list", "--score"])
         .stdout(Stdio::piped())
@@ -38,36 +63,37 @@ fn import_zoxide(db: &mut Database) -> Result<usize> {
 
     let output = match output {
         Ok(o) if o.status.success() => o,
-        _ => return Ok(0),
+        _ => return Ok(()),
     };
 
-    let mut imported = 0;
     let reader = BufReader::new(output.stdout.as_slice());
+    let mut count = 0;
 
     for line in reader.lines() {
         let line = line?;
         if let Some((score, path)) = parse_score_path(&line) {
-            if db.import_entry(path, score).is_ok() {
-                imported += 1;
+            if std::path::Path::new(path).exists() {
+                entries.push((path.to_string(), score));
+                count += 1;
             }
         }
     }
 
-    if imported > 0 {
-        println!("  zoxide: {} entries", imported);
+    if count > 0 {
+        println!("  zoxide: {} entries", count);
     }
-    Ok(imported)
+    Ok(())
 }
 
-/// Import from autojump (~/.local/share/autojump/autojump.txt).
-fn import_autojump(db: &mut Database) -> Result<usize> {
+/// Collect entries from autojump (~/.local/share/autojump/autojump.txt).
+fn collect_autojump(entries: &mut Vec<(String, f64)>) -> Result<()> {
     let path = dirs_autojump();
     if !path.exists() {
-        return Ok(0);
+        return Ok(());
     }
 
     let content = fs::read_to_string(&path)?;
-    let mut imported = 0;
+    let mut count = 0;
 
     // Format: "score\tpath" (tab-separated)
     for line in content.lines() {
@@ -76,23 +102,24 @@ fn import_autojump(db: &mut Database) -> Result<usize> {
             continue;
         }
 
-        if let Some((score_str, path)) = line.split_once('\t') {
+        if let Some((score_str, dir_path)) = line.split_once('\t') {
             if let Ok(score) = score_str.parse::<f64>() {
-                if db.import_entry(path, score).is_ok() {
-                    imported += 1;
+                if std::path::Path::new(dir_path).exists() {
+                    entries.push((dir_path.to_string(), score));
+                    count += 1;
                 }
             }
         }
     }
 
-    if imported > 0 {
-        println!("  autojump: {} entries", imported);
+    if count > 0 {
+        println!("  autojump: {} entries", count);
     }
-    Ok(imported)
+    Ok(())
 }
 
-/// Import from z/z.lua/zsh-z (~/.z).
-fn import_z(db: &mut Database) -> Result<usize> {
+/// Collect entries from z/z.lua/zsh-z (~/.z).
+fn collect_z(entries: &mut Vec<(String, f64)>) -> Result<()> {
     // Check both ~/.z and $Z_DATA / $_Z_DATA
     let paths: Vec<PathBuf> = [
         Some(dirs_z()),
@@ -104,7 +131,7 @@ fn import_z(db: &mut Database) -> Result<usize> {
     .flatten()
     .collect();
 
-    let mut imported = 0;
+    let mut count = 0;
 
     for path in paths {
         if !path.exists() {
@@ -125,31 +152,32 @@ fn import_z(db: &mut Database) -> Result<usize> {
 
             let parts: Vec<&str> = line.split('|').collect();
             if parts.len() >= 2 {
-                let path = parts[0];
+                let dir_path = parts[0];
                 if let Ok(score) = parts[1].parse::<f64>() {
-                    if db.import_entry(path, score).is_ok() {
-                        imported += 1;
+                    if std::path::Path::new(dir_path).exists() {
+                        entries.push((dir_path.to_string(), score));
+                        count += 1;
                     }
                 }
             }
         }
     }
 
-    if imported > 0 {
-        println!("  z/z.lua: {} entries", imported);
+    if count > 0 {
+        println!("  z/z.lua: {} entries", count);
     }
-    Ok(imported)
+    Ok(())
 }
 
-/// Import from fasd (~/.fasd).
-fn import_fasd(db: &mut Database) -> Result<usize> {
+/// Collect entries from fasd (~/.fasd).
+fn collect_fasd(entries: &mut Vec<(String, f64)>) -> Result<()> {
     let path = dirs_fasd();
     if !path.exists() {
-        return Ok(0);
+        return Ok(());
     }
 
     let content = fs::read_to_string(&path)?;
-    let mut imported = 0;
+    let mut count = 0;
 
     // Format: "path|score|timestamp" (similar to z)
     for line in content.lines() {
@@ -160,22 +188,21 @@ fn import_fasd(db: &mut Database) -> Result<usize> {
 
         let parts: Vec<&str> = line.split('|').collect();
         if parts.len() >= 2 {
-            let path = parts[0];
+            let dir_path = parts[0];
             if let Ok(score) = parts[1].parse::<f64>() {
                 // fasd tracks files too, only import directories
-                if std::path::Path::new(path).is_dir() {
-                    if db.import_entry(path, score).is_ok() {
-                        imported += 1;
-                    }
+                if std::path::Path::new(dir_path).is_dir() {
+                    entries.push((dir_path.to_string(), score));
+                    count += 1;
                 }
             }
         }
     }
 
-    if imported > 0 {
-        println!("  fasd: {} entries", imported);
+    if count > 0 {
+        println!("  fasd: {} entries", count);
     }
-    Ok(imported)
+    Ok(())
 }
 
 /// Parse "  123.4 /path/to/dir" format (zoxide output).
