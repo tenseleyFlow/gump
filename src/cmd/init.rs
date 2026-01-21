@@ -62,6 +62,9 @@ fi
         builtin cd ~ && __gump_hook
     elif [[ $# -eq 1 && "$1" == "-" ]]; then
         builtin cd - && __gump_hook
+    elif [[ $# -eq 1 && -d "$1" ]]; then
+        # Explicit path - cd directly without fuzzy matching
+        builtin cd -- "$1" && __gump_hook
     else
         local result
         # Try CWD first, then database
@@ -162,6 +165,9 @@ __gump_hook() {
         builtin cd ~
     elif [[ $# -eq 1 && "$1" == "-" ]]; then
         builtin cd -
+    elif [[ $# -eq 1 && -d "$1" ]]; then
+        # Explicit path - cd directly without fuzzy matching
+        builtin cd -- "$1"
     else
         local result
         # Try CWD first, then database
@@ -281,6 +287,9 @@ function {cmd} --description "Jump to a directory"
         cd ~
     else if test (count $argv) -eq 1 -a "$argv[1]" = "-"
         cd -
+    else if test (count $argv) -eq 1 -a -d "$argv[1]"
+        # Explicit path - cd directly without fuzzy matching
+        cd $argv[1]
     else
         # Try CWD first, then database
         set -l result (command gump query --cwd -- $argv 2>/dev/null)
