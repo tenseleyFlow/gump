@@ -133,11 +133,13 @@ impl Matcher {
             .filter_map(|(path, frecency)| {
                 let fuzzy_score = self.score(path, terms)?;
 
-                // Combined score: frecency is the primary factor, fuzzy score is secondary
-                // Frecency typically ranges 0.25-40+, fuzzy score 0-500+
-                // We normalize fuzzy score to 0-1 range and use it as a multiplier
-                let fuzzy_factor = 1.0 + (fuzzy_score as f64 / 500.0).min(1.0);
-                let combined_score = frecency * fuzzy_factor;
+                // Combined score: fuzzy match quality is PRIMARY, frecency is secondary
+                // This ensures a great match beats a poor match with high frecency
+                //
+                // Fuzzy score (0-500+) is the base
+                // Frecency (0.25-40+) adds a small boost (up to ~25%) for tiebreaking
+                let frecency_bonus = 1.0 + (frecency / 160.0).min(0.25);
+                let combined_score = (fuzzy_score as f64) * frecency_bonus;
 
                 Some(Match {
                     path,
