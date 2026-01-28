@@ -76,22 +76,29 @@ pub fn run(terms: Vec<String>, show_score: bool, show_all: bool, cwd_mode: bool)
 }
 
 /// Match against directories in the current working directory.
+/// Matches against directory NAMES only (not full paths) to avoid false positives
+/// from parent directory names appearing in the path.
 fn run_cwd_mode(matcher: &mut Matcher, terms: &[String], show_all: bool) -> Result<()> {
     let cwd = std::env::current_dir()?;
 
     // Read directory entries, filter to directories only
-    let dirs: Vec<PathBuf> = std::fs::read_dir(&cwd)?
+    // Store both the full path (for result) and just the name (for matching)
+    let dirs: Vec<(PathBuf, PathBuf)> = std::fs::read_dir(&cwd)?
         .filter_map(|entry| entry.ok())
         .filter(|entry| entry.file_type().map(|ft| ft.is_dir()).unwrap_or(false))
-        .map(|entry| entry.path())
+        .map(|entry| {
+            let full_path = entry.path();
+            let name_only = PathBuf::from(entry.file_name());
+            (full_path, name_only)
+        })
         .collect();
 
     if dirs.is_empty() {
         std::process::exit(1);
     }
 
-    // Use equal frecency (1.0) for all CWD entries - fuzzy score determines ranking
-    let paths = dirs.iter().map(|p| (p.as_path(), 1.0));
+    // Match against directory NAMES only, not full paths
+    let paths = dirs.iter().map(|(_, name)| (name.as_path(), 1.0));
 
     let matches = matcher.rank(paths, terms);
 
@@ -99,12 +106,20 @@ fn run_cwd_mode(matcher: &mut Matcher, terms: &[String], show_all: bool) -> Resu
         std::process::exit(1);
     }
 
+    // Find the full path for each matched name
     if show_all {
         for m in &matches {
-            println!("{}", m.path.display());
+            // Find the full path that corresponds to this matched name
+            if let Some((full_path, _)) = dirs.iter().find(|(_, name)| name.as_path() == m.path) {
+                println!("{}", full_path.display());
+            }
         }
     } else {
-        println!("{}", matches[0].path.display());
+        // Find the full path for the best match
+        let matched_name = matches[0].path;
+        if let Some((full_path, _)) = dirs.iter().find(|(_, name)| name.as_path() == matched_name) {
+            println!("{}", full_path.display());
+        }
     }
 
     Ok(())
