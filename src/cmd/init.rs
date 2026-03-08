@@ -8,6 +8,7 @@ pub fn run(shell: Shell, cmd: String, hook: Hook, no_cmd: bool) -> Result<()> {
         Shell::Bash => generate_bash(&cmd, &hook, no_cmd),
         Shell::Zsh => generate_zsh(&cmd, &hook, no_cmd),
         Shell::Fish => generate_fish(&cmd, &hook, no_cmd),
+        Shell::Fortsh => generate_fortsh(&cmd, &hook, no_cmd),
     };
 
     println!("{}", output);
@@ -372,6 +373,121 @@ end
 bind \r __gump_execute
 bind \n __gump_execute
 "#);
+
+    output
+}
+
+fn generate_fortsh(cmd: &str, hook: &Hook, no_cmd: bool) -> String {
+    let mut output = String::new();
+
+    // Hook function
+    output.push_str(r#"
+# gump hook - called after directory changes
+__gump_hook() {
+    command gump add -- "$PWD"
+}
+"#);
+
+    // Hook helper for pwd mode (defined before trap, used later)
+    if matches!(hook, Hook::Pwd) {
+        output.push_str(r#"
+# Track directory changes
+__gump_oldpwd="$PWD"
+__gump_pwd_hook() {
+    if [[ "$PWD" != "$__gump_oldpwd" ]]; then
+        __gump_oldpwd="$PWD"
+        __gump_hook
+    fi
+}
+"#);
+    }
+
+    // Command aliases (unless --no-cmd)
+    if !no_cmd {
+        output.push_str(&format!(
+            r#"
+# Jump function
+{cmd}() {{
+    if [[ $# -eq 0 ]]; then
+        command cd ~ && __gump_hook
+    elif [[ $# -eq 1 && "$1" == "-" ]]; then
+        command cd - && __gump_hook
+    elif [[ $# -eq 1 && -d "$1" ]]; then
+        command cd -- "$1" && __gump_hook
+    else
+        local result
+        result=$(command gump query --cwd -- "$@" 2>/dev/null)
+        if [[ -z "$result" ]]; then
+            result=$(command gump query -- "$@" 2>/dev/null)
+        fi
+        if [[ -n "$result" ]]; then
+            command cd -- "$result" && __gump_hook
+        else
+            echo "gump: no match found" >&2
+            return 1
+        fi
+    fi
+}}
+
+# Interactive mode with fzf
+{cmd}i() {{
+    local result
+    result=$(command gump query --all -- "$@" | fzf --height=40% --reverse)
+    if [[ -n "$result" ]]; then
+        command cd -- "$result" && __gump_hook
+    fi
+}}
+"#,
+            cmd = cmd
+        ));
+    }
+
+    // command_not_found_handle for no-prefix jumping
+    output.push_str(r#"
+# No-prefix directory jumping
+command_not_found_handle() {
+    # Check if it's a local directory first (exact match)
+    if [[ -d "$1" ]]; then
+        command cd -- "$1" && __gump_hook
+        return 0
+    fi
+
+    # Fuzzy match against current directory contents
+    local result
+    result=$(command gump query --cwd -- "$@" 2>/dev/null)
+    if [[ -n "$result" ]]; then
+        command cd -- "$result" && __gump_hook
+        return 0
+    fi
+
+    # Query gump database
+    result=$(command gump query -- "$@" 2>/dev/null)
+    if [[ -n "$result" ]]; then
+        command cd -- "$result" && __gump_hook
+        return 0
+    fi
+
+    # Fallback to default "command not found" behavior
+    echo "fortsh: $1: command not found" >&2
+    return 127
+}
+"#);
+
+    // Set trap LAST to avoid firing during function definitions above
+    match hook {
+        Hook::Prompt => {
+            output.push_str(r#"
+# Update on every prompt (via DEBUG trap)
+trap '__gump_hook' DEBUG
+"#);
+        }
+        Hook::Pwd => {
+            output.push_str(r#"
+# Update when directory changes (via DEBUG trap)
+trap '__gump_pwd_hook' DEBUG
+"#);
+        }
+    }
 
     output
 }
