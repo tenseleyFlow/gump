@@ -83,6 +83,7 @@ pub enum Shell {
     Bash,
     Zsh,
     Fish,
+    Fortsh,
 }
 
 #[derive(Clone, ValueEnum)]
