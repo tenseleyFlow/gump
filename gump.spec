@@ -1,5 +1,5 @@
 Name:           gump
-Version:        0.2.4
+Version:        0.2.5
 Release:        1%{?dist}
 Summary:        A smarter cd command using frecency
 
@@ -43,6 +43,9 @@ echo ""
 %{_bindir}/gump
 
 %changelog
+* Sun Mar 08 2026 mfw <espadonne@outlook.com> - 0.2.5-1
+- Improve error message when editor not found in gump edit
+
 * Tue Jan 28 2026 mfw <espadonne@outlook.com> - 0.2.4-1
 - Version bump to 0.2.4
 - Bug fixes and improvements
