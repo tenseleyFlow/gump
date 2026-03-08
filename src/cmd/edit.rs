@@ -50,7 +50,19 @@ pub fn run() -> Result<()> {
         .unwrap_or_else(|_| "vi".to_string());
 
     // Open in editor
-    let status = Command::new(&editor).arg(&temp_path).status()?;
+    let status = Command::new(&editor)
+        .arg(&temp_path)
+        .status()
+        .map_err(|e| {
+            if e.kind() == std::io::ErrorKind::NotFound {
+                CmdError::Other(format!(
+                    "editor '{}' not found. Set $EDITOR or $VISUAL to an installed editor",
+                    editor
+                ))
+            } else {
+                CmdError::Io(e)
+            }
+        })?;
 
     if !status.success() {
         return Err(CmdError::Other("Editor exited with error".to_string()));
