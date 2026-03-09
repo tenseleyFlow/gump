@@ -412,8 +412,8 @@ __gump_pwd_hook() {
         command cd ~ && __gump_hook
     elif [[ $# -eq 1 && "$1" == "-" ]]; then
         command cd - && __gump_hook
-    elif [[ $# -eq 1 && -d "$1" ]]; then
-        command cd -- "$1" && __gump_hook
+    elif [ $# -eq 1 ] && [ -d "$1" ]; then
+        command cd "$1" && __gump_hook
     else
         local result
         result=$(command gump query --cwd -- "$@" 2>/dev/null)
@@ -421,7 +421,7 @@ __gump_pwd_hook() {
             result=$(command gump query -- "$@" 2>/dev/null)
         fi
         if [[ -n "$result" ]]; then
-            command cd -- "$result" && __gump_hook
+            command cd "$result" && __gump_hook
         else
             echo "gump: no match found" >&2
             return 1
@@ -434,7 +434,7 @@ __gump_pwd_hook() {
     local result
     result=$(command gump query --all -- "$@" | fzf --height=40% --reverse)
     if [[ -n "$result" ]]; then
-        command cd -- "$result" && __gump_hook
+        command cd "$result" && __gump_hook
     fi
 }}
 "#,
@@ -447,8 +447,8 @@ __gump_pwd_hook() {
 # No-prefix directory jumping
 command_not_found_handle() {
     # Check if it's a local directory first (exact match)
-    if [[ -d "$1" ]]; then
-        command cd -- "$1" && __gump_hook
+    if [ -d "$1" ]; then
+        command cd "$1" && __gump_hook
         return 0
     fi
 
@@ -456,14 +456,14 @@ command_not_found_handle() {
     local result
     result=$(command gump query --cwd -- "$@" 2>/dev/null)
     if [[ -n "$result" ]]; then
-        command cd -- "$result" && __gump_hook
+        command cd "$result" && __gump_hook
         return 0
     fi
 
     # Query gump database
     result=$(command gump query -- "$@" 2>/dev/null)
     if [[ -n "$result" ]]; then
-        command cd -- "$result" && __gump_hook
+        command cd "$result" && __gump_hook
         return 0
     fi
 
