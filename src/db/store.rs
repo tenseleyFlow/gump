@@ -159,7 +159,7 @@ impl Database {
 
     /// Import an entry with a specific score (for importing from zoxide).
     pub fn import_entry<P: AsRef<Path>>(&mut self, path: P, score: f64) -> Result<(), DatabaseError> {
-        let path = PathBuf::from(path.as_ref());
+        let path = self.canonicalize_path(path)?;
 
         // Skip if excluded
         if self.is_excluded(&path) {

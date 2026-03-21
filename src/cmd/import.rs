@@ -31,7 +31,10 @@ pub fn run() -> Result<()> {
     // Find max score for normalization
     let max_score = entries.iter().map(|(_, s)| *s).fold(0.0f64, f64::max);
 
+    let total_found = entries.len();
+
     // Normalize and import
+    let mut skipped = 0;
     for (path, score) in entries {
         // Scale score to 0-MAX_IMPORT_SCORE range
         let normalized = if max_score > 0.0 {
@@ -40,14 +43,20 @@ pub fn run() -> Result<()> {
             1.0
         };
 
-        if db.import_entry(&path, normalized.max(1.0)).is_ok() {
-            total_imported += 1;
+        match db.import_entry(&path, normalized.max(1.0)) {
+            Ok(()) => total_imported += 1,
+            Err(_) => skipped += 1,
         }
     }
 
     if total_imported > 0 {
         db.save()?;
-        println!("Imported {} entries (scores normalized to 1-{})", total_imported, MAX_IMPORT_SCORE as u32);
+    }
+
+    println!("Found {} entries, imported {} (scores normalized to 1-{})",
+        total_found, total_imported, MAX_IMPORT_SCORE as u32);
+    if skipped > 0 {
+        println!("Skipped {} entries (excluded or unresolvable paths)", skipped);
     }
 
     Ok(())
