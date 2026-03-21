@@ -1,6 +1,6 @@
 [package]
 name = "gump"
-version = "0.2.6"
+version = "0.2.7"
 edition = "2021"
 description = "A smarter cd command - zoxide without the z"
 authors = ["mfwolffe"]
